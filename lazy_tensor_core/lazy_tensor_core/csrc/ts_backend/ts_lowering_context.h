@@ -17,12 +17,12 @@ namespace ts_backend {
 class GenericComputationTS : public lazy_tensors::GenericComputation {
  public:
   GenericComputationTS(std::shared_ptr<torch::jit::Graph> graph)
-      : graph_(std::move(graph)) {}
+      : graph_executor_(std::move(graph), "") {}
 
   lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GetProgramShape()
       const override {
     std::vector<std::string> parameter_names;
-    for (torch::jit::Value* input : graph_->inputs()) {
+    for (torch::jit::Value* input : graph_executor_.graph()->inputs()) {
       parameter_names.push_back(input->debugName());
     }
     // NB: The return type is only used by certain backends to assing a physical
@@ -33,10 +33,12 @@ class GenericComputationTS : public lazy_tensors::GenericComputation {
                                       lazy_tensors::Shape());
   }
 
-  std::shared_ptr<torch::jit::Graph> graph() const { return graph_; }
+  std::shared_ptr<torch::jit::Graph> GetGraph() const { return graph_executor_.graph(); }
+
+  torch::jit::GraphExecutor& GetGraphExecutor() { return graph_executor_; }
 
  private:
-  std::shared_ptr<torch::jit::Graph> graph_;
+  torch::jit::GraphExecutor graph_executor_;
 };
 
 class TSLoweringContext : public ir::LoweringContext {
