@@ -1,10 +1,9 @@
 #pragma once
 
 /*
- * A very basic uint128 class, based on absl version, used as the basis for 128-bit
- * hashing for the lazy tensor project.
- * If using this for other purposes, it might make sense to replace this with a more
- * complete implementation.
+ * A very basic uint128 class, based on absl version, used as the basis for
+ *128-bit hashing for the lazy tensor project. If using this for other purposes,
+ *it might make sense to replace this with a more complete implementation.
  **/
 
 #include <cstdint>
