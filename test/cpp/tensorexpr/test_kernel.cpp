@@ -17,6 +17,20 @@
 namespace torch {
 namespace jit {
 
+namespace {
+bool checkRtol(const at::Tensor& diff, const std::vector<at::Tensor> inputs) {
+  double maxValue = 0.0;
+  for (auto& tensor : inputs) {
+    maxValue = fmax(tensor.abs().max().item<float>(), maxValue);
+  }
+  return diff.abs().max().item<float>() < 2e-6 * maxValue;
+}
+
+bool almostEqual(const at::Tensor& a, const at::Tensor& b) {
+  return checkRtol(a - b, {a, b});
+}
+} // namespace
+
 using namespace torch::indexing;
 using namespace torch::jit::tensorexpr;
 
@@ -1634,6 +1648,29 @@ TEST_F(Kernel, DISABLED_FlattenVectorize) {
   for (size_t i = 0; i < 100 * 3; i++) {
     CHECK_EQ(((float*)o.data_ptr())[i], ((float*)ref.data_ptr())[i]);
   }
+#endif
+}
+
+TEST_F(Kernel, Linear) {
+#ifdef TORCH_ENABLE_LLVM
+  const auto graph_string = R"IR(
+      graph(%x.0 : Float(2, 2, strides=[2, 1], device=cpu), %x.1 : Float(2, 2, strides=[2, 1], device=cpu), %x.2 : Float(2, 2, strides=[2, 1], device=cpu)):
+        %y : Float(2, 2) = aten::linear(%x.0, %x.1, %x.2)
+        return (%y))IR";
+  auto graph = std::make_shared<Graph>();
+  parseIR(graph_string, &*graph);
+
+  auto x0 = at::rand({2, 2}, TensorOptions(kCPU).dtype(at::kFloat));
+  auto x1 = at::rand({2, 2}, TensorOptions(kCPU).dtype(at::kFloat));
+  auto xb = at::rand({2, 2}, TensorOptions(kCPU).dtype(at::kFloat));
+  auto y_expected = at::linear(x0, x1, xb);
+  TensorExprKernel k(graph);
+  std::vector<at::Tensor> inputs = {x0, x1, xb};
+  StmtPtr s = k.getCodeGenStmt();
+  std::vector<IValue> stack = fmap<IValue>(inputs);
+  k.run(stack);
+  auto y = stack[0].toTensor();
+  CHECK_EQ(almostEqual(y_expected, y), 1);
 #endif
 }
 

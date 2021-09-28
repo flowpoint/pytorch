@@ -18,8 +18,6 @@
 using namespace torch::jit;
 using namespace torch::jit::tensorexpr;
 
-namespace {
-
 static bool checkTypes(const ScalarType highType, const int typeConstraints) {
   if (typeConstraints == kAllTypes) {
     return true;
@@ -40,8 +38,6 @@ static bool checkTypes(const ScalarType highType, const int typeConstraints) {
           "Qint and Complex types are not supported in the fuser."));
   return false;
 }
-
-} // namespace
 
 namespace torch {
 namespace jit {
@@ -2479,6 +2475,9 @@ Tensor tensorexpr::computeOperandValue(
     }
     case aten::conv2d: {
       return computeConv2d(inputs, outputShape, outputType);
+    } break;
+    case aten::linear: {
+      return computeLinear(inputs, outputShape, outputType);
     } break;
     case aten::addmm: {
       return computeAddMM(inputs, outputShape, outputType);
