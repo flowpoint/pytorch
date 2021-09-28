@@ -146,16 +146,58 @@ at::Tensor& flatten_copy_out(
   return reshape_copy_out(out, self, shape, false);
 }
 
+namespace {
+template <typename scalar_t>
+void to_copy_out_fast_path(Tensor& out, const Tensor& self) {
+  using self_t = scalar_t;
+  const auto N = self.numel();
+  const auto self_data = self.data_ptr<self_t>();
+  AT_DISPATCH_ALL_TYPES_AND2(
+      kHalf,
+      kBFloat16,
+      out.scalar_type(),
+      "to_copy_out_inner_loop",
+      [&]() {
+        const auto out_data = out.data_ptr<scalar_t>();
+        for (const auto idx : c10::irange(N)) {
+          out_data[idx] = static_cast<scalar_t>(self_data[idx]);
+        }
+      });
+}
+
 at::Tensor& to_copy_out(
     Tensor& out,
     const Tensor& self,
     bool non_blocking,
-    bool copy_strides) {
+    bool copy_strides,
+    c10::optional<MemoryFormat> memory_format) {
   if (copy_strides) {
     at::native::resize_impl_cpu_(
         out.unsafeGetTensorImpl(), self.sizes(), self.strides());
   } else {
     at::native::resize_(out, self.sizes(), c10::nullopt);
+  }
+  // Fast path: can we just copy the data ourselves? Avoids creating a
+  // TensorIterator in at::native::copy_, which is relatively
+  // expensive.
+  if (self.is_contiguous() && !non_blocking &&
+      // Did the user request us to make a copy that isn't contiguous?
+      (memory_format == c10::nullopt ||
+       memory_format == c10::MemoryFormat::Preserve ||
+       memory_format == c10::MemoryFormat::Contiguous) &&
+      // CopyKernel.cpp handles this case specially, so let's not mess
+      // with it.
+      !self.is_neg() &&
+      !(
+          // FBGEMM optimization might kick in, don't interfere with
+          // that.
+          (self.dtype() == kFloat && out.dtype() == kHalf) ||
+          (self.dtype() == kHalf && out.dtype() == kFloat))) {
+    AT_DISPATCH_ALL_TYPES_AND2(
+        kHalf, kBFloat16, self.scalar_type(), "to_copy_out", [&]() {
+          to_copy_out_fast_path<scalar_t>(out, self);
+        });
+    return out;
   }
   at::native::copy_(out, self, non_blocking);
   return out;
@@ -995,7 +1037,8 @@ REGISTER_OPERATOR_FUNCTOR(
 
         auto& out_t = p_node->Output(0).toTensor();
         fastResizeToZero(out_t);
-        at::native::to_copy_out(out_t, self, non_blocking, copy_strides);
+        at::native::to_copy_out(
+            out_t, self, non_blocking, copy_strides, memory_format);
       };
     });
 
