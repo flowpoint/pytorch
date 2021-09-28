@@ -11,14 +11,14 @@
 
 #include <c10/core/Scalar.h>
 #include <c10/core/ScalarType.h>
+#include <c10/util/int128.h>
 #include <torch/csrc/WindowsTorchApiMacro.h>
-#include <torch/csrc/lazy/core/int128.h>
 
 namespace torch {
 namespace lazy {
 
 using size_t = std::size_t;
-using hash_t = uint128;
+using hash_t = c10::uint128;
 
 // Std* functions use 64-bit hash
 size_t StdDataHash(const void* data, size_t size);
@@ -30,7 +30,7 @@ hash_t HashBlock(const void* data, size_t n, const hash_t& seed);
 
 hash_t TORCH_API DataHash(const void* data, size_t size);
 
-hash_t HashCombine(const hash_t& a, const hash_t& b);
+hash_t TORCH_API HashCombine(const hash_t& a, const hash_t& b);
 
 size_t HashReduce(const hash_t& a);
 

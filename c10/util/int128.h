@@ -1,17 +1,24 @@
 #pragma once
 
+/*
+ * A very basic uint128 class, based on absl version, used as the basis for 128-bit
+ * hashing for the lazy tensor project.
+ * If using this for other purposes, it might make sense to replace this with a more
+ * complete implementation.
+ **/
+
 #include <cstdint>
 #include <limits>
 
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(__x86_64__))
 // For MSVC, couldn't find a byte order macro
-#elif (!defined(__BYTE_ORDER__) || !defined(__ORDER_LITTLE_ENDIAN__) || \
-     __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
+#elif (                                                              \
+    !defined(__BYTE_ORDER__) || !defined(__ORDER_LITTLE_ENDIAN__) || \
+    __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
 #error "Only little endian supported"
 #endif
 
-namespace torch {
-namespace lazy {
+namespace c10 {
 
 class alignas(unsigned __int128) uint128 {
  public:
@@ -134,5 +141,4 @@ inline uint128 operator^(uint128 lhs, uint128 rhs) {
       Uint128High64(lhs) ^ Uint128High64(rhs),
       Uint128Low64(lhs) ^ Uint128Low64(rhs));
 }
-} // namespace lazy
-} // namespace torch
+} // namespace c10
