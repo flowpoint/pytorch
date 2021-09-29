@@ -355,7 +355,8 @@ libtorch_core_sources = sorted(
     core_sources_full +
     core_trainer_sources +
     libtorch_profiler_sources +
-    lazy_tensor_core_sources)
+    lazy_tensor_core_sources,
+)
 
 # These files are the only ones that are supported on Windows.
 libtorch_distributed_base_sources = [
